@@ -253,12 +253,21 @@ withErrorHandling(withAdminAuth(withValidation(schema)(handler)))
 ## CDK Infrastructure
 
 ### Stacks/Constructs
-- `FooderStack` (main stack, composes all constructs)
+Two stacks per stage (`dev` / `prod`):
+- `Fooder-{Stage}-InfraStack` — Infrastructure (manual deploy only)
   - `DatabaseConstruct` — 4 DynamoDB tables with GSIs, on-demand billing
+  - `KmsConstruct` — KMS key for PII encryption
+  - SSM parameter exports for cross-stack references
+- `Fooder-{Stage}-AppStack` — Application (auto-deployed by CI/CD)
   - `AuthConstruct` — Cognito User Pool, Google IdP, User Pool Client, Hosted UI domain, post-confirmation Lambda
   - `ApiConstruct` — API Gateway REST API, Cognito Authorizer, Lambda functions per handler, IAM roles
   - `FrontendConstruct` — S3 buckets + CloudFront distributions for admin and customer apps
-  - `KmsConstruct` — KMS key for PII encryption
+
+### CI/CD Pipeline (COMPLETE)
+- **CI**: GitHub Actions on all PRs and pushes to main — build, test, cdk synth
+- **DEV Deploy**: Auto-deploys `AppStack` on merge to main (path-filtered). Manual `workflow_dispatch` for infra.
+- **PROD Deploy**: Deploys `AppStack` on git tag (`v*`). Manual `workflow_dispatch` for infra with environment approval.
+- **OIDC Auth**: GitHub Actions assumes IAM roles via OIDC (no static credentials)
 
 ---
 

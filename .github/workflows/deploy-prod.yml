@@ -1,0 +1,155 @@
+name: Deploy PROD
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+  workflow_dispatch:
+    inputs:
+      deploy_infra:
+        description: 'Deploy infrastructure stack (DynamoDB, KMS)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -w run build:types
+      - run: pnpm -w run build
+      - run: pnpm -w run test
+
+  deploy-infra:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_infra == true
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PROD_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy Infra Stack
+        run: cd infra && npx cdk deploy Fooder-Prod-InfraStack -c stage=prod --require-approval never
+
+  deploy-app:
+    needs: test
+    if: always() && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_PROD_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy App Stack
+        run: cd infra && npx cdk deploy Fooder-Prod-AppStack -c stage=prod --require-approval never
+
+      - name: Get stack outputs
+        id: outputs
+        run: |
+          get_output() {
+            aws cloudformation describe-stacks \
+              --stack-name Fooder-Prod-AppStack \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
+              --output text 2>/dev/null || echo ""
+          }
+          echo "admin_bucket=$(get_output AdminBucketName)" >> "$GITHUB_OUTPUT"
+          echo "admin_distribution=$(get_output AdminDistributionId)" >> "$GITHUB_OUTPUT"
+          echo "customer_bucket=$(get_output CustomerBucketName)" >> "$GITHUB_OUTPUT"
+          echo "customer_distribution=$(get_output CustomerDistributionId)" >> "$GITHUB_OUTPUT"
+          echo "api_url=$(get_output ApiUrl)" >> "$GITHUB_OUTPUT"
+
+      - name: Build admin app
+        if: steps.outputs.outputs.admin_bucket != ''
+        run: |
+          cd apps/admin && pnpm build
+        env:
+          VITE_API_URL: ${{ steps.outputs.outputs.api_url }}
+          VITE_COGNITO_USER_POOL_ID: ${{ secrets.PROD_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ secrets.PROD_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_DOMAIN: ${{ secrets.PROD_COGNITO_DOMAIN }}
+
+      - name: Deploy admin app to S3
+        if: steps.outputs.outputs.admin_bucket != ''
+        run: aws s3 sync apps/admin/dist/ s3://${{ steps.outputs.outputs.admin_bucket }} --delete
+
+      - name: Invalidate admin CloudFront cache
+        if: steps.outputs.outputs.admin_distribution != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.outputs.outputs.admin_distribution }} \
+            --paths "/*"
+
+      - name: Build customer app
+        if: steps.outputs.outputs.customer_bucket != ''
+        run: |
+          cd apps/customer && pnpm build
+        env:
+          VITE_API_URL: ${{ steps.outputs.outputs.api_url }}
+          VITE_COGNITO_USER_POOL_ID: ${{ secrets.PROD_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ secrets.PROD_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_DOMAIN: ${{ secrets.PROD_COGNITO_DOMAIN }}
+
+      - name: Deploy customer app to S3
+        if: steps.outputs.outputs.customer_bucket != ''
+        run: aws s3 sync apps/customer/dist/ s3://${{ steps.outputs.outputs.customer_bucket }} --delete
+
+      - name: Invalidate customer CloudFront cache
+        if: steps.outputs.outputs.customer_distribution != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.outputs.outputs.customer_distribution }} \
+            --paths "/*"

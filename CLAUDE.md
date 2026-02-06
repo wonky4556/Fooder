@@ -48,7 +48,9 @@ pnpm -w run dev:customer
 
 ## Key Architecture Decisions
 
-**CDK**: Uses `tsx` (not `ts-node`) for Node 22 ESM compatibility. Entry point: `infra/bin/fooder.ts`. Single stack `FooderStack` composes constructs (DatabaseConstruct, KmsConstruct).
+**CDK**: Uses `tsx` (not `ts-node`) for Node 22 ESM compatibility. Entry point: `infra/bin/fooder.ts`. Two stacks per stage:
+- `Fooder-{Stage}-InfraStack` — DynamoDB tables, KMS key, SSM parameter exports (manual deploy via `workflow_dispatch`)
+- `Fooder-{Stage}-AppStack` — API, frontends (auto-deployed by CI/CD)
 
 **DynamoDB**: All tables use single-table-ish design with `tenantId` as partition key. PAY_PER_REQUEST billing, point-in-time recovery enabled. Key tables: UsersTable, MenuItemsTable, SchedulesTable, OrdersTable — each with purpose-specific GSIs.
 
@@ -76,12 +78,46 @@ Remote is named `Fooder` (not `origin`): `git push Fooder main`
 - Don't import `source-map-support/register` — tsx handles this
 - Default region: `us-east-1`
 
+## CI/CD Pipeline
+
+Two-environment strategy: DEV (auto-deploy on merge to main) and PROD (deploy on git tag `v*`).
+
+### Workflows
+- **CI** (`.github/workflows/ci.yml`) — Runs on all PRs and pushes to main: build, test, cdk synth
+- **Deploy DEV** (`.github/workflows/deploy-dev.yml`) — Auto-deploys `Fooder-Dev-AppStack` on merge to main (path-filtered). Manual `workflow_dispatch` with `deploy_infra=true` for infra changes.
+- **Deploy PROD** (`.github/workflows/deploy-prod.yml`) — Deploys `Fooder-Prod-AppStack` on tag push (`v*`). Manual `workflow_dispatch` with `deploy_infra=true` for infra changes (requires environment approval).
+
+### CDK Deploy Commands
+```bash
+# DEV
+cd infra && npx cdk deploy Fooder-Dev-InfraStack -c stage=dev
+cd infra && npx cdk deploy Fooder-Dev-AppStack -c stage=dev
+
+# PROD
+cd infra && npx cdk deploy Fooder-Prod-InfraStack -c stage=prod
+cd infra && npx cdk deploy Fooder-Prod-AppStack -c stage=prod
+
+# Synth both stages
+cd infra && npx cdk synth -c stage=dev
+cd infra && npx cdk synth -c stage=prod
+```
+
+### Release Process
+1. Merge to main → DEV auto-deploys
+2. QA on DEV
+3. `git tag v1.x.x && git push Fooder v1.x.x` → PROD deploys
+
+### GitHub Secrets Required
+- `AWS_DEV_DEPLOY_ROLE_ARN` / `AWS_PROD_DEPLOY_ROLE_ARN` — OIDC role ARNs
+- `DEV_COGNITO_*` / `PROD_COGNITO_*` — Cognito config (Phase 2+)
+
 ## Phase Status
 
 - **Phase 1**: COMPLETE (scaffolding, shared types, DynamoDB tables, KMS key, 12 CDK tests passing)
+- **CI/CD**: COMPLETE (GitHub Actions: CI, DEV deploy, PROD deploy; stack split into InfraStack + AppStack)
 - **Phase 2**: NOT STARTED (Authentication — Cognito)
 - **Phases 3-6**: NOT STARTED (API, admin frontend, customer frontend, deployment)
 
-## Docmentation
+## Documentation
 - Update prd.md with status of phases and completion of steps
-- Create plan files for approved plans duing plan mode
+- Create plan files for approved plans during plan mode

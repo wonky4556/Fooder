@@ -1,14 +1,14 @@
 import { App } from 'aws-cdk-lib';
 import { Template, Match } from 'aws-cdk-lib/assertions';
 import { describe, it, beforeAll } from 'vitest';
-import { FooderStack } from '../lib/fooder-stack';
+import { FooderInfraStack } from '../lib/fooder-infra-stack';
 
 describe('KMS Construct', () => {
   let template: Template;
 
   beforeAll(() => {
     const app = new App();
-    const stack = new FooderStack(app, 'TestStack');
+    const stack = new FooderInfraStack(app, 'TestStack', { stage: 'test' });
     template = Template.fromStack(stack);
   });
 
