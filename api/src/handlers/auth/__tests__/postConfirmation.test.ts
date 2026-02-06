@@ -8,6 +8,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
     from: vi.fn(() => ({ send: mockDocSend })),
   },
   PutCommand: vi.fn((input) => ({ input, _type: 'PutCommand' })),
+  UpdateCommand: vi.fn((input) => ({ input, _type: 'UpdateCommand' })),
 }));
 
 vi.mock('@aws-sdk/client-dynamodb', () => ({
@@ -103,13 +104,16 @@ describe('postConfirmation handler', () => {
     expect(putInput.Item.role).toBe('customer');
   });
 
-  it('is idempotent - handles ConditionalCheckFailedException', async () => {
+  it('updates existing user on ConditionalCheckFailedException', async () => {
+    const adminEmailHash = hashEmail('existing@example.com');
+    process.env.ADMIN_EMAIL_HASHES = adminEmailHash;
+
     mockKmsSend.mockResolvedValue({
       CiphertextBlob: new Uint8Array([10, 11, 12]),
     });
-    mockDocSend.mockRejectedValueOnce({
-      name: 'ConditionalCheckFailedException',
-    });
+    mockDocSend
+      .mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' })
+      .mockResolvedValueOnce({}); // UpdateCommand succeeds
 
     const event = createMockCognitoEvent({
       sub: 'existing-user',
@@ -119,6 +123,16 @@ describe('postConfirmation handler', () => {
 
     const result = await handler(event, mockContext);
     expect(result).toBe(event);
+
+    // First call is PutCommand (fails), second is UpdateCommand
+    expect(mockDocSend).toHaveBeenCalledTimes(2);
+    const updateInput = mockDocSend.mock.calls[1][0].input;
+    expect(updateInput.TableName).toBe('test-users-table');
+    expect(updateInput.Key).toEqual({ tenantId: 'DEFAULT', userId: 'existing-user' });
+    expect(updateInput.ExpressionAttributeValues[':role']).toBe('admin');
+    expect(updateInput.ExpressionAttributeValues[':ee']).toBeDefined();
+    expect(updateInput.ExpressionAttributeValues[':edn']).toBeDefined();
+    expect(updateInput.ExpressionAttributeValues[':eh']).toBe(adminEmailHash);
   });
 
   it('sets tenantId to DEFAULT', async () => {
