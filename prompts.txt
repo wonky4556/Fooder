@@ -1,0 +1,27 @@
+Make a food ordering app. It should contain a management portal and a customer facing website.
+The management portal should
+    - Allow provider to create menu items
+    - set prices and quantities
+    - schedule an ordering window when items will be available for sale
+    - add food pick up instructions
+    - provide a list of orders to fullfill
+    - mark off orders that have been fullfilled
+
+The customer facing site should
+    - Allow users to see items for sale
+    - add items to cart and submit the order
+    - only allow ordering items when they are in the scheduling window
+    - only allow ordering if item quantity is available
+
+Tech stack will be
+    - AWS hosted
+    - React frontend
+    - Common SSO authentication providers like Google
+
+Build with ability for facing future enhancements that could include
+    - Payments
+    - Multi tenancy
+    - Automatic notifications through Whatsapp, text messaging or email
+    - Order confirmation emails
+
+Ask me to clarify the product requirements, technical requirements, engineering principles, and hard constraints.
