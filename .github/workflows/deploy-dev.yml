@@ -9,6 +9,7 @@ on:
       - 'packages/**'
       - 'infra/lib/fooder-app-stack.ts'
       - 'infra/lib/constructs/api.ts'
+      - 'infra/lib/constructs/auth.ts'
       - 'infra/lib/constructs/frontend.ts'
       - 'infra/bin/fooder.ts'
       - 'pnpm-lock.yaml'
@@ -103,7 +104,12 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy App Stack
-        run: cd infra && npx cdk deploy Fooder-Dev-AppStack -c stage=dev --require-approval never
+        run: |
+          cd infra && npx cdk deploy Fooder-Dev-AppStack -c stage=dev \
+            -c googleClientId=${{ secrets.DEV_GOOGLE_CLIENT_ID }} \
+            -c googleClientSecret=${{ secrets.DEV_GOOGLE_CLIENT_SECRET }} \
+            -c adminEmailHashes=${{ secrets.DEV_ADMIN_EMAIL_HASHES }} \
+            --require-approval never
 
       - name: Get stack outputs
         id: outputs

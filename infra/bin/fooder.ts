@@ -18,7 +18,25 @@ new FooderInfraStack(app, `Fooder-${capitalStage}-InfraStack`, {
   stage,
 });
 
+const googleClientId =
+  app.node.tryGetContext('googleClientId') ??
+  process.env.GOOGLE_CLIENT_ID ??
+  'placeholder';
+
+const googleClientSecret =
+  app.node.tryGetContext('googleClientSecret') ??
+  process.env.GOOGLE_CLIENT_SECRET ??
+  'placeholder';
+
+const adminEmailHashes =
+  app.node.tryGetContext('adminEmailHashes') ??
+  process.env.ADMIN_EMAIL_HASHES ??
+  '';
+
 new FooderAppStack(app, `Fooder-${capitalStage}-AppStack`, {
   env,
   stage,
+  googleClientId,
+  googleClientSecret,
+  adminEmailHashes,
 });
