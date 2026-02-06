@@ -269,6 +269,102 @@ Two stacks per stage (`dev` / `prod`):
 - **PROD Deploy**: Deploys `AppStack` on git tag (`v*`). Manual `workflow_dispatch` for infra with environment approval.
 - **OIDC Auth**: GitHub Actions assumes IAM roles via OIDC (no static credentials)
 
+### GitHub Secrets Required
+
+The following secrets must be configured in the GitHub repository settings (Settings > Secrets and variables > Actions) for the deploy workflows to succeed.
+
+#### AWS OIDC Deployment Roles (Phase 1+)
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_DEV_DEPLOY_ROLE_ARN` | IAM role ARN for DEV deployments, assumed via OIDC |
+| `AWS_PROD_DEPLOY_ROLE_ARN` | IAM role ARN for PROD deployments, assumed via OIDC |
+
+#### Google OAuth Credentials (Phase 2+)
+
+These are passed as CDK context values when deploying the AppStack. They configure the Cognito User Pool's Google identity provider.
+
+| Secret | Description |
+|--------|-------------|
+| `DEV_GOOGLE_CLIENT_ID` | Google OAuth client ID for DEV environment |
+| `DEV_GOOGLE_CLIENT_SECRET` | Google OAuth client secret for DEV environment |
+| `DEV_ADMIN_EMAIL_HASHES` | Comma-separated SHA-256 hashes of admin email addresses for DEV |
+| `PROD_GOOGLE_CLIENT_ID` | Google OAuth client ID for PROD environment |
+| `PROD_GOOGLE_CLIENT_SECRET` | Google OAuth client secret for PROD environment |
+| `PROD_ADMIN_EMAIL_HASHES` | Comma-separated SHA-256 hashes of admin email addresses for PROD |
+
+#### Cognito Configuration (Phase 2+, populated after first AppStack deploy)
+
+These are used as Vite build-time environment variables when building the frontend apps in CI.
+
+| Secret | Description |
+|--------|-------------|
+| `DEV_COGNITO_USER_POOL_ID` | Cognito User Pool ID from DEV AppStack outputs |
+| `DEV_COGNITO_CLIENT_ID` | Cognito User Pool Client ID from DEV AppStack outputs |
+| `DEV_COGNITO_DOMAIN` | Cognito Hosted UI domain for DEV (e.g. `fooder-dev.auth.us-east-1.amazoncognito.com`) |
+| `PROD_COGNITO_USER_POOL_ID` | Cognito User Pool ID from PROD AppStack outputs |
+| `PROD_COGNITO_CLIENT_ID` | Cognito User Pool Client ID from PROD AppStack outputs |
+| `PROD_COGNITO_DOMAIN` | Cognito Hosted UI domain for PROD |
+
+### Manual Setup Steps (Phase 2)
+
+These steps must be completed before the CI/CD pipeline can deploy the AppStack with authentication.
+
+#### 1. Create Google Cloud OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project (or use existing)
+3. Navigate to **APIs & Services > Credentials**
+4. Click **Create Credentials > OAuth client ID**
+5. Application type: **Web application**
+6. Authorized redirect URIs — add:
+   - `https://fooder-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` (DEV)
+   - `https://fooder-prod.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` (PROD)
+   - `http://localhost:5173/auth/callback` (local development)
+7. Copy the **Client ID** and **Client Secret**
+8. Set as GitHub secrets: `DEV_GOOGLE_CLIENT_ID`, `DEV_GOOGLE_CLIENT_SECRET`, `PROD_GOOGLE_CLIENT_ID`, `PROD_GOOGLE_CLIENT_SECRET`
+
+**Note**: You can use the same Google OAuth app for both DEV and PROD (just add both redirect URIs), or create separate apps for isolation.
+
+#### 2. Generate Admin Email Hashes
+
+Admin role assignment is based on SHA-256 hashes of email addresses (compared at user registration time).
+
+```bash
+# Generate the hash for an admin email:
+echo -n "admin@example.com" | tr '[:upper:]' '[:lower:]' | tr -d ' ' | shasum -a 256 | cut -d' ' -f1
+
+# For multiple admins, comma-separate:
+# hash1,hash2,hash3
+```
+
+Set as GitHub secrets: `DEV_ADMIN_EMAIL_HASHES`, `PROD_ADMIN_EMAIL_HASHES`
+
+#### 3. Deploy AppStack and Collect Cognito Outputs
+
+After the first successful AppStack deployment (which creates the Cognito resources):
+
+```bash
+# Get outputs from the deployed stack
+aws cloudformation describe-stacks \
+  --stack-name Fooder-Dev-AppStack \
+  --query "Stacks[0].Outputs" --output table
+
+# You need:
+#   AuthUserPoolId      → DEV_COGNITO_USER_POOL_ID
+#   AuthUserPoolClientId → DEV_COGNITO_CLIENT_ID
+#   Cognito domain      → DEV_COGNITO_DOMAIN (format: fooder-dev.auth.us-east-1.amazoncognito.com)
+```
+
+Set these values as GitHub secrets so subsequent deploys can build the frontend apps with the correct Cognito configuration.
+
+**Bootstrap order for a fresh environment:**
+1. Set Google OAuth + admin hash secrets
+2. Trigger AppStack deploy (manually or via merge) — this creates Cognito resources
+3. Collect Cognito outputs from CloudFormation
+4. Set Cognito secrets
+5. Future deploys will build and deploy frontend apps with correct auth config
+
 ---
 
 ## Extensibility Hooks (Designed For, Not Implemented)
