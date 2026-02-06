@@ -7,6 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "dev": "tsx --env-file=../.env src/local/dev-server.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -21,7 +22,12 @@
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
+    "@types/cors": "^2.8.0",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "cors": "^2.8.0",
+    "express": "^5.0.0",
+    "tsx": "^4.0.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

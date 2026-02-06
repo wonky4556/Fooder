@@ -12,6 +12,7 @@
     "test:admin": "pnpm --filter @fooder/admin test",
     "test:customer": "pnpm --filter @fooder/customer test",
     "test:shared-ui": "pnpm --filter @fooder/shared-ui test",
+    "dev:api": "pnpm --filter @fooder/api dev",
     "dev:admin": "pnpm --filter @fooder/admin dev",
     "dev:customer": "pnpm --filter @fooder/customer dev",
     "lint": "pnpm -r lint"
