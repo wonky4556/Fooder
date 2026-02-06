@@ -1,0 +1,23 @@
+{
+  "name": "fooder",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Food ordering app with admin portal and customer site",
+  "scripts": {
+    "build": "pnpm -r build",
+    "build:types": "pnpm --filter @fooder/shared-types build",
+    "test": "pnpm -r test",
+    "test:infra": "pnpm --filter @fooder/infra test",
+    "test:api": "pnpm --filter @fooder/api test",
+    "test:admin": "pnpm --filter @fooder/admin test",
+    "test:customer": "pnpm --filter @fooder/customer test",
+    "test:shared-ui": "pnpm --filter @fooder/shared-ui test",
+    "dev:admin": "pnpm --filter @fooder/admin dev",
+    "dev:customer": "pnpm --filter @fooder/customer dev",
+    "lint": "pnpm -r lint"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  }
+}

@@ -301,11 +301,32 @@ withErrorHandling(withAdminAuth(withValidation(schema)(handler)))
 **Step 3 — Run tests:** `pnpm test:infra` — all CDK assertions pass
 
 **Step 4 — Manual validation (wait for user confirmation):**
-- [ ] `pnpm install` completes without errors
-- [ ] `pnpm build:types` compiles shared types successfully
-- [ ] `cd infra && npx cdk synth` generates valid CloudFormation template
-- [ ] Review CloudFormation output: confirm 4 DynamoDB tables, GSIs, KMS key
-- [ ] All tests pass: `pnpm test:infra`
+- [X] `pnpm install` completes without errors
+- [X] `pnpm build:types` compiles shared types successfully
+- [X] `cd infra && npx cdk synth` generates valid CloudFormation template
+- [X] Review CloudFormation output: confirm 4 DynamoDB tables, GSIs, KMS key
+- [X] All tests pass: `pnpm test:infra`
+
+**Step 5 — Deploy to AWS:**
+```bash
+# Prerequisites: AWS CLI configured with credentials (aws configure)
+# Ensure CDK is bootstrapped in target account/region (one-time)
+cd infra && npx cdk bootstrap
+
+# Preview changes before deploying
+npx cdk diff
+
+# Deploy the stack (DynamoDB tables + KMS key)
+npx cdk deploy --require-approval broadening
+
+# Verify deployment
+aws dynamodb list-tables --query 'TableNames[?starts_with(@, `Fooder`)]'
+aws kms list-aliases --query 'Aliases[?starts_with(AliasName, `alias/fooder`)]'
+```
+- [ ] `cdk bootstrap` completes (first time only)
+- [ ] `cdk deploy` succeeds — 4 DynamoDB tables and KMS key created
+- [ ] Verify tables exist in AWS Console or via CLI
+- [ ] Verify KMS key alias `alias/fooder/DEFAULT/pii` exists
 
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 2.**
 
@@ -395,6 +416,40 @@ Frontend tests:
 - [ ] (If Google credentials configured) Login flow works end-to-end
 - [ ] Post-confirmation Lambda test: verify DynamoDB user record has `emailHash` and `encryptedEmail` (no plaintext)
 
+**Step 5 — Deploy to AWS:**
+```bash
+# Prerequisite: Google OAuth credentials created at console.cloud.google.com
+# Set environment variables for the deploy (or use cdk.context.json)
+export GOOGLE_CLIENT_ID="your-google-client-id"
+export GOOGLE_CLIENT_SECRET="your-google-client-secret"
+export ADMIN_EMAIL_HASHES="sha256-hash-of-admin-email"
+
+# Generate admin email hash:
+echo -n "admin@example.com" | tr '[:upper:]' '[:lower:]' | tr -d ' ' | shasum -a 256 | cut -d' ' -f1
+
+# Preview and deploy
+cd infra && npx cdk diff
+npx cdk deploy --require-approval broadening
+
+# Note the outputs — you'll need:
+#   - Cognito User Pool ID
+#   - Cognito User Pool Client ID
+#   - Cognito Hosted UI Domain
+#   - API Gateway URL
+
+# Verify Cognito setup
+aws cognito-idp list-user-pools --max-results 10 --query 'UserPools[?starts_with(Name, `Fooder`)]'
+
+# Test post-confirmation Lambda (after first Google sign-in):
+aws dynamodb scan --table-name <UsersTableName> --limit 5
+# Verify: emailHash and encryptedEmail present, no plaintext email
+```
+- [ ] Google OAuth credentials configured
+- [ ] `cdk deploy` succeeds — Cognito User Pool, Lambda triggers created
+- [ ] Cognito Hosted UI domain is accessible
+- [ ] First Google login triggers post-confirmation Lambda
+- [ ] DynamoDB user record contains `emailHash` + `encryptedEmail` (no plaintext)
+
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 3.**
 
 ### Phase 3: Core API (Menu + Schedules)
@@ -481,6 +536,47 @@ Infrastructure tests:
 - [ ] (If deployed) curl test: create schedule with items → 201, verify embedded item snapshot
 - [ ] (If deployed) curl test: unauthorized request → 401
 - [ ] (If deployed) curl test: customer tries admin endpoint → 403
+
+**Step 5 — Deploy to AWS:**
+```bash
+cd infra && npx cdk diff
+npx cdk deploy --require-approval broadening
+
+# Note the API Gateway URL from stack outputs
+# Example: https://abc123.execute-api.us-east-1.amazonaws.com/prod
+
+# Get a valid JWT token (sign in via Cognito Hosted UI, extract ID token)
+# Then test API endpoints:
+
+# Create a menu item (admin only)
+curl -X POST https://<api-url>/api/menu-items \
+  -H "Authorization: Bearer <admin-id-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Item","description":"A test","price":9.99,"category":"main"}'
+# Expected: 201
+
+# List menu items
+curl https://<api-url>/api/menu-items \
+  -H "Authorization: Bearer <id-token>"
+# Expected: 200 with array
+
+# Test unauthorized
+curl https://<api-url>/api/menu-items
+# Expected: 401
+
+# Test customer trying admin endpoint
+curl -X POST https://<api-url>/api/menu-items \
+  -H "Authorization: Bearer <customer-id-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Blocked","description":"Should fail","price":1,"category":"test"}'
+# Expected: 403
+```
+- [ ] `cdk deploy` succeeds — API Gateway + Lambda functions created
+- [ ] API Gateway URL is accessible
+- [ ] Admin can create/list/update/delete menu items
+- [ ] Admin can create/list/update schedules
+- [ ] Unauthenticated requests return 401
+- [ ] Customer role requests to admin endpoints return 403
 
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 4.**
 
@@ -574,6 +670,38 @@ Infrastructure tests:
 - [ ] Create a schedule with items and quantities → verify it appears with correct status
 - [ ] Activate a schedule → verify status changes
 - [ ] Orders page renders (empty list is fine, orders come in Phase 5)
+
+**Step 5 — Deploy to AWS:**
+```bash
+cd infra && npx cdk diff
+npx cdk deploy --require-approval broadening
+
+# Build the admin app for production
+cd apps/admin
+echo "VITE_API_URL=https://<api-url>" > .env.production
+echo "VITE_COGNITO_USER_POOL_ID=<user-pool-id>" >> .env.production
+echo "VITE_COGNITO_CLIENT_ID=<client-id>" >> .env.production
+echo "VITE_COGNITO_DOMAIN=<hosted-ui-domain>" >> .env.production
+pnpm build
+
+# Deploy admin static assets to S3
+aws s3 sync dist/ s3://<admin-bucket-name> --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+  --distribution-id <admin-cf-distribution-id> \
+  --paths "/*"
+
+# Verify admin app is accessible
+echo "Admin app: https://<admin-cloudfront-domain>"
+```
+- [ ] `cdk deploy` succeeds — S3 bucket + CloudFront distribution created for admin
+- [ ] Admin app builds with production env vars
+- [ ] Static assets uploaded to S3
+- [ ] Admin app loads at CloudFront URL
+- [ ] Login with Google works through CloudFront domain
+- [ ] Menu items CRUD works end-to-end in deployed environment
+- [ ] Schedule management works end-to-end
 
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 5.**
 
@@ -709,6 +837,48 @@ Customer component tests:
 - [ ] (If deployed) Time window enforcement: order outside window → rejected
 - [ ] (If deployed) DynamoDB inspection: no plaintext PII in orders table
 
+**Step 5 — Deploy to AWS:**
+```bash
+cd infra && npx cdk diff
+npx cdk deploy --require-approval broadening
+
+# Build the customer app for production
+cd apps/customer
+echo "VITE_API_URL=https://<api-url>" > .env.production
+echo "VITE_COGNITO_USER_POOL_ID=<user-pool-id>" >> .env.production
+echo "VITE_COGNITO_CLIENT_ID=<client-id>" >> .env.production
+echo "VITE_COGNITO_DOMAIN=<hosted-ui-domain>" >> .env.production
+pnpm build
+
+# Deploy customer static assets to S3
+aws s3 sync dist/ s3://<customer-bucket-name> --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+  --distribution-id <customer-cf-distribution-id> \
+  --paths "/*"
+
+# Verify customer app is accessible
+echo "Customer app: https://<customer-cloudfront-domain>"
+
+# End-to-end test:
+# 1. Admin: create menu items + schedule + activate
+# 2. Customer: browse schedule → add to cart → place order
+# 3. Admin: verify order appears in orders list
+# 4. Verify quantity enforcement (order more than remaining → 409)
+# 5. Verify time window enforcement (order outside window → rejected)
+
+# Verify PII encryption in DynamoDB
+aws dynamodb scan --table-name <OrdersTableName> --limit 5
+# Confirm: encryptedUserEmail and encryptedUserDisplayName present, no plaintext
+```
+- [ ] `cdk deploy` succeeds — order Lambdas + customer S3/CloudFront created
+- [ ] Customer app builds and deploys to CloudFront
+- [ ] Customer can browse active schedules, add to cart, place orders
+- [ ] Quantity enforcement works (409 when exceeding remaining)
+- [ ] Time window enforcement works (rejected outside window)
+- [ ] DynamoDB orders table has no plaintext PII
+
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 6.**
 
 ### Phase 6: Order Fulfillment + Polish
@@ -762,6 +932,46 @@ Infrastructure tests:
   3. Admin sees new order → marks as fulfilled
   4. Customer sees order status updated to "fulfilled"
   5. Inspect DynamoDB: no plaintext PII anywhere
+
+**Step 5 — Deploy to AWS (final production release):**
+```bash
+cd infra && npx cdk diff
+npx cdk deploy --require-approval broadening
+
+# Update Cognito callback URLs to include both CloudFront domains
+# (handled by CDK if FrontendConstruct passes URLs to AuthConstruct)
+
+# Rebuild and deploy both frontend apps with final env vars
+cd apps/admin && pnpm build
+aws s3 sync dist/ s3://<admin-bucket-name> --delete
+aws cloudfront create-invalidation --distribution-id <admin-cf-distribution-id> --paths "/*"
+
+cd ../../apps/customer && pnpm build
+aws s3 sync dist/ s3://<customer-bucket-name> --delete
+aws cloudfront create-invalidation --distribution-id <customer-cf-distribution-id> --paths "/*"
+
+# Full production E2E validation:
+# 1. Admin: login → create menu items → create schedule → activate
+# 2. Customer: login → browse → add to cart → place order
+# 3. Admin: see order → mark fulfilled
+# 4. Customer: see order updated to "fulfilled"
+# 5. Admin: cancel an order → verify quantities restored on schedule
+# 6. DynamoDB inspection: aws dynamodb scan --table-name <table> --limit 5
+#    Confirm zero plaintext PII across all tables
+
+# Optional: set up custom domain with Route 53 + ACM certificate
+# aws acm request-certificate --domain-name admin.yourdomain.com
+# aws acm request-certificate --domain-name order.yourdomain.com
+# Then add alternate domain names to CloudFront distributions
+```
+- [ ] `cdk deploy` succeeds — all resources up to date
+- [ ] Both admin and customer apps redeployed with final config
+- [ ] Cognito callback URLs include CloudFront domains
+- [ ] Full E2E flow works: admin creates → customer orders → admin fulfills
+- [ ] Bulk fulfillment works for multiple orders
+- [ ] Cancel order restores quantities on schedule
+- [ ] DynamoDB: zero plaintext PII across all tables
+- [ ] (Optional) Custom domains configured
 
 **CHECKPOINT: Phase 6 complete. All features implemented and tested.**
 

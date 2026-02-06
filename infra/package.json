@@ -1,0 +1,23 @@
+{
+  "name": "@fooder/infra",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.175.0",
+    "aws-cdk-lib": "^2.175.0",
+    "constructs": "^10.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.175.0",
+    "constructs": "^10.4.0"
+  }
+}
