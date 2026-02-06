@@ -1,7 +1,16 @@
 import type { PostConfirmationConfirmSignUpTriggerEvent, Context } from 'aws-lambda';
-import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../../lib/dynamodb.js';
 import { hashEmail, encryptPII } from '../../lib/crypto.js';
+
+function getRole(emailHash: string): 'admin' | 'customer' {
+  const adminEmailHashes = (process.env.ADMIN_EMAIL_HASHES || '')
+    .split(',')
+    .map((h) => h.trim())
+    .filter(Boolean);
+
+  return adminEmailHashes.includes(emailHash) ? 'admin' : 'customer';
+}
 
 export async function handler(
   event: PostConfirmationConfirmSignUpTriggerEvent,
@@ -15,12 +24,7 @@ export async function handler(
     encryptPII(name || ''),
   ]);
 
-  const adminEmailHashes = (process.env.ADMIN_EMAIL_HASHES || '')
-    .split(',')
-    .map((h) => h.trim())
-    .filter(Boolean);
-
-  const role = adminEmailHashes.includes(emailHash) ? 'admin' : 'customer';
+  const role = getRole(emailHash);
   const now = new Date().toISOString();
 
   try {
@@ -42,7 +46,23 @@ export async function handler(
     );
   } catch (err: unknown) {
     if ((err as { name?: string }).name === 'ConditionalCheckFailedException') {
-      // User already exists — idempotent
+      // User already exists — update role and encrypted PII in case they changed
+      await docClient.send(
+        new UpdateCommand({
+          TableName: process.env.USERS_TABLE_NAME!,
+          Key: { tenantId: 'DEFAULT', userId: sub },
+          UpdateExpression:
+            'SET #role = :role, encryptedEmail = :ee, encryptedDisplayName = :edn, emailHash = :eh, updatedAt = :now',
+          ExpressionAttributeNames: { '#role': 'role' },
+          ExpressionAttributeValues: {
+            ':role': role,
+            ':ee': encryptedEmail,
+            ':edn': encryptedDisplayName,
+            ':eh': emailHash,
+            ':now': now,
+          },
+        }),
+      );
       return event;
     }
     throw err;
