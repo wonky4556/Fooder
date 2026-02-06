@@ -81,3 +81,7 @@ Remote is named `Fooder` (not `origin`): `git push Fooder main`
 - **Phase 1**: COMPLETE (scaffolding, shared types, DynamoDB tables, KMS key, 12 CDK tests passing)
 - **Phase 2**: NOT STARTED (Authentication — Cognito)
 - **Phases 3-6**: NOT STARTED (API, admin frontend, customer frontend, deployment)
+
+## Docmentation
+- Update prd.md with status of phases and completion of steps
+- Create plan files for approved plans duing plan mode
