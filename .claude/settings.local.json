@@ -6,7 +6,14 @@
       "Bash(git commit:*)",
       "Bash(pnpm install:*)",
       "Bash(npx cdk synth:*)",
-      "Bash(pnpm -w run test:*)"
+      "Bash(pnpm -w run test:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(pnpm --filter @fooder/infra add:*)",
+      "Bash(pnpm -w run build:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh api repos/wonky4556/Fooder/environments)",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(e[''name'']\\) for e in data.get\\(''environments'',[]\\)]\")"
     ]
   }
 }

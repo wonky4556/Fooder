@@ -4,7 +4,7 @@
       {
         "Effect": "Allow",
         "Principal": {
-          "Federated": "arn:aws:iam::<PROD_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+          "Federated": "arn:aws:iam::428168861054:oidc-provider/token.actions.githubusercontent.com"
         },
         "Action": "sts:AssumeRoleWithWebIdentity",
         "Condition": {
@@ -12,7 +12,7 @@
             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
           },
           "StringLike": {
-            "token.actions.githubusercontent.com:sub": "repo:wonky4556/Fooder:ref:refs/tags/v*"
+            "token.actions.githubusercontent.com:sub": "repo:wonky4556/Fooder:environment:prod"
           }
         }
       }
