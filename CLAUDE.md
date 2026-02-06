@@ -110,12 +110,14 @@ cd infra && npx cdk synth -c stage=prod
 ### GitHub Secrets Required
 - `AWS_DEV_DEPLOY_ROLE_ARN` / `AWS_PROD_DEPLOY_ROLE_ARN` — OIDC role ARNs
 - `DEV_COGNITO_*` / `PROD_COGNITO_*` — Cognito config (Phase 2+)
+- `DEV_GOOGLE_CLIENT_ID` / `DEV_GOOGLE_CLIENT_SECRET` / `DEV_ADMIN_EMAIL_HASHES` — Google OAuth + admin config
+- `PROD_GOOGLE_CLIENT_ID` / `PROD_GOOGLE_CLIENT_SECRET` / `PROD_ADMIN_EMAIL_HASHES` — Google OAuth + admin config
 
 ## Phase Status
 
 - **Phase 1**: COMPLETE (scaffolding, shared types, DynamoDB tables, KMS key, 12 CDK tests passing)
 - **CI/CD**: COMPLETE (GitHub Actions: CI, DEV deploy, PROD deploy; stack split into InfraStack + AppStack)
-- **Phase 2**: NOT STARTED (Authentication — Cognito)
+- **Phase 2**: COMPLETE (Cognito auth with Google SSO, post-confirmation Lambda, API middleware, admin scaffold — 33 API + 20 infra + 4 admin = 57 tests)
 - **Phases 3-6**: NOT STARTED (API, admin frontend, customer frontend, deployment)
 
 ## Documentation

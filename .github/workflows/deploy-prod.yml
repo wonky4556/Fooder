@@ -95,7 +95,12 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy App Stack
-        run: cd infra && npx cdk deploy Fooder-Prod-AppStack -c stage=prod --require-approval never
+        run: |
+          cd infra && npx cdk deploy Fooder-Prod-AppStack -c stage=prod \
+            -c googleClientId=${{ secrets.PROD_GOOGLE_CLIENT_ID }} \
+            -c googleClientSecret=${{ secrets.PROD_GOOGLE_CLIENT_SECRET }} \
+            -c adminEmailHashes=${{ secrets.PROD_ADMIN_EMAIL_HASHES }} \
+            --require-approval never
 
       - name: Get stack outputs
         id: outputs

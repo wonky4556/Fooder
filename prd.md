@@ -414,10 +414,10 @@ Frontend tests:
 - `apps/admin/src/pages/Login.tsx`, `Dashboard.tsx`
 - `apps/admin/src/api/client.ts`
 
-**Step 3 — Run tests:** `pnpm test:api` and `pnpm test:infra` and `pnpm test:admin` — all pass
+**Step 3 — Run tests:** `pnpm test:api` and `pnpm test:infra` and `pnpm test:admin` — all pass (33 API + 20 infra + 4 admin = 57 tests)
 
 **Step 4 — Manual validation (wait for user confirmation):**
-- [ ] All tests pass: `pnpm test`
+- [X] All tests pass: `pnpm test`
 - [ ] `pnpm build` succeeds across all packages
 - [ ] `cd infra && npx cdk synth` — CloudFormation includes Cognito, Lambda triggers
 - [ ] `pnpm dev:admin` — admin app starts on localhost
