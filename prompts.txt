@@ -25,3 +25,137 @@ Build with ability for facing future enhancements that could include
     - Order confirmation emails
 
 Ask me to clarify the product requirements, technical requirements, engineering principles, and hard constraints.
+
+
+
+
+----
+
+Manual Setup Steps                                                                                                                                       
+                                                                                                                                                           
+  1. Create OIDC Identity Provider (both AWS accounts)                                                                                                     
+                                                                                                                                                           
+  Do this in both your DEV and PROD AWS accounts:
+
+  # In each account, run:
+  aws iam create-open-id-connect-provider \
+    --url "https://token.actions.githubusercontent.com" \
+    --client-id-list "sts.amazonaws.com" \
+    --thumbprint-list "6938fd4d98bab03faadb97b34396831e3780aea1"
+
+  2. Create IAM Deploy Role — DEV Account
+
+  Create a file dev-trust-policy.json:
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Federated": "arn:aws:iam::<DEV_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+          },
+          "StringLike": {
+            "token.actions.githubusercontent.com:sub": "repo:wonky4556/Fooder:ref:refs/heads/main"
+          }
+        }
+      }
+    ]
+  }
+
+  # Create the role
+  aws iam create-role \
+    --role-name fooder-github-actions-deploy-dev \
+    --assume-role-policy-document file://dev-trust-policy.json
+
+  # Attach permissions (broad for now — scope down later)
+  aws iam attach-role-policy --role-name fooder-github-actions-deploy-dev \
+    --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+  Note: AdministratorAccess is fine for dev. For production hardening later, create a custom policy scoped to CloudFormation, S3, IAM, Lambda, API Gateway,
+   Cognito, DynamoDB, KMS, CloudFront, SSM, Logs, STS.
+
+  3. Create IAM Deploy Role — PROD Account
+
+  Create a file prod-trust-policy.json:
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Principal": {
+          "Federated": "arn:aws:iam::<PROD_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+        },
+        "Action": "sts:AssumeRoleWithWebIdentity",
+        "Condition": {
+          "StringEquals": {
+            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+          },
+          "StringLike": {
+            "token.actions.githubusercontent.com:sub": "repo:wonky4556/Fooder:ref:refs/tags/v*"
+          }
+        }
+      }
+    ]
+  }
+
+  aws iam create-role \
+    --role-name fooder-github-actions-deploy-prod \
+    --assume-role-policy-document file://prod-trust-policy.json
+
+  aws iam attach-role-policy --role-name fooder-github-actions-deploy-prod \
+    --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+  4. Add GitHub Secrets
+
+  Go to GitHub repo → Settings → Secrets and variables → Actions → New repository secret:
+  ┌──────────────────────────┬───────────────────────────────────────────────────────────────────────┐
+  │          Secret          │                                 Value                                 │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────┤
+  │ AWS_DEV_DEPLOY_ROLE_ARN  │ arn:aws:iam::<DEV_ACCOUNT_ID>:role/fooder-github-actions-deploy-dev   │
+  ├──────────────────────────┼───────────────────────────────────────────────────────────────────────┤
+  │ AWS_PROD_DEPLOY_ROLE_ARN │ arn:aws:iam::<PROD_ACCOUNT_ID>:role/fooder-github-actions-deploy-prod │
+  └──────────────────────────┴───────────────────────────────────────────────────────────────────────┘
+  5. Create GitHub Environments
+
+  Go to GitHub repo → Settings → Environments:
+
+  dev environment:
+  - Click "New environment" → name: dev
+  - Deployment branches: select "Selected branches and tags" → add rule: main
+
+  prod environment:
+  - Click "New environment" → name: prod
+  - Deployment branches: select "Selected branches and tags" → add rule: v* (tags)
+  - Required reviewers: add yourself (or your team)
+
+  6. Migrate DEV (deploy new stacks, destroy old)
+
+  # Bootstrap CDK in DEV account (if not already done)
+  cd infra && npx cdk bootstrap -c stage=dev
+
+  # Deploy new InfraStack (creates new DynamoDB tables + KMS key)
+  npx cdk deploy Fooder-Dev-InfraStack -c stage=dev --require-approval broadening
+
+  # Deploy new AppStack (empty for now)
+  npx cdk deploy Fooder-Dev-AppStack -c stage=dev --require-approval broadening
+
+  # Verify new resources exist
+  aws dynamodb list-tables --query 'TableNames[?starts_with(@, `Fooder`)]'
+  aws kms list-aliases --query 'Aliases[?starts_with(AliasName, `alias/fooder`)]'
+
+  # Destroy old FooderStack (safe — dev account, RemovalPolicy.DESTROY)
+  npx cdk destroy FooderStack
+
+  7. Push and Verify CI
+
+  git push Fooder main
+
+  This will trigger the CI workflow. Check it at GitHub repo → Actions → CI to verify it passes (build, test, cdk synth).
+
+  The DEV deploy workflow will also trigger since infra/bin/fooder.ts changed — it will fail at the AWS credentials step since the deploy role might not
+  exist yet, which is expected. Once you complete steps 1-5, future merges will deploy successfully.
