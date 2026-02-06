@@ -5,7 +5,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(pnpm install:*)",
-      "Bash(npx cdk synth:*)"
+      "Bash(npx cdk synth:*)",
+      "Bash(pnpm -w run test:*)"
     ]
   }
 }

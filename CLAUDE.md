@@ -121,3 +121,7 @@ cd infra && npx cdk synth -c stage=prod
 ## Documentation
 - Update prd.md with status of phases and completion of steps
 - Create plan files for approved plans during plan mode
+
+## Version Control
+- Do not push directly to main branch. 
+- Always create a new branch for changes and open a PR unless addressing comments directly on a branch that already has a PR open.
