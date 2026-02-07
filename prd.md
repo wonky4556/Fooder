@@ -557,7 +557,7 @@ aws dynamodb scan --table-name <UsersTableName> --limit 5
 
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 3.**
 
-### Phase 3: Core API (Menu + Schedules)
+### Phase 3: Core API (Menu + Schedules) (COMPLETE)
 **Goal**: All CRUD endpoints functional with full test coverage.
 
 **Step 1 — Write tests first:**
@@ -634,13 +634,13 @@ Infrastructure tests:
 **Step 3 — Run tests:** `pnpm test:api` and `pnpm test:infra` — all pass
 
 **Step 4 — Manual validation (wait for user confirmation):**
-- [ ] All tests pass: `pnpm test`
-- [ ] `pnpm build` succeeds
-- [ ] `cd infra && npx cdk synth` — CloudFormation includes API Gateway, all Lambda functions
-- [ ] (If deployed) curl test: create menu item with valid JWT → 201
-- [ ] (If deployed) curl test: create schedule with items → 201, verify embedded item snapshot
-- [ ] (If deployed) curl test: unauthorized request → 401
-- [ ] (If deployed) curl test: customer tries admin endpoint → 403
+- [x] All tests pass: `pnpm test` (129 tests: 30 infra + 95 API + 4 admin)
+- [x] `pnpm build` succeeds
+- [x] `cd infra && npx cdk synth` — CloudFormation includes API Gateway, all Lambda functions
+- [x] curl test: create menu item with valid JWT → 201
+- [x] curl test: create schedule with items → 201, verify embedded item snapshot
+- [x] curl test: unauthorized request → 401
+- [x] curl test: customer tries admin endpoint → 403
 
 **Step 5 — Deploy to AWS:**
 ```bash
@@ -676,12 +676,12 @@ curl -X POST https://<api-url>/api/menu-items \
   -d '{"name":"Blocked","description":"Should fail","price":1,"category":"test"}'
 # Expected: 403
 ```
-- [ ] `cdk deploy` succeeds — API Gateway + Lambda functions created
-- [ ] API Gateway URL is accessible
-- [ ] Admin can create/list/update/delete menu items
-- [ ] Admin can create/list/update schedules
-- [ ] Unauthenticated requests return 401
-- [ ] Customer role requests to admin endpoints return 403
+- [x] `cdk deploy` succeeds — API Gateway + Lambda functions created
+- [x] API Gateway URL is accessible
+- [x] Admin can create/list/update/delete menu items
+- [x] Admin can create/list/update schedules
+- [x] Unauthenticated requests return 401
+- [x] Customer role requests to admin endpoints return 403
 
 **CHECKPOINT: Wait for user confirmation before proceeding to Phase 4.**
 
