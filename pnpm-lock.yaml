@@ -29,9 +29,6 @@ importers:
       '@fooder/shared-types':
         specifier: workspace:*
         version: link:../packages/shared-types
-      ulid:
-        specifier: ^2.3.0
-        version: 2.4.0
       zod:
         specifier: ^3.24.0
         version: 3.25.76

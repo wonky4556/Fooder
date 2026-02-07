@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult, Context } from 'aws-lambda';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
-import { ulid } from 'ulid';
+import { randomUUID } from 'node:crypto';
 import { docClient } from '../../lib/dynamodb.js';
 import { success } from '../../lib/response.js';
 import { ValidationError } from '../../lib/errors.js';
@@ -26,7 +26,7 @@ async function createMenuItemHandler(
   const now = new Date().toISOString();
   const item = {
     tenantId: event.auth.tenantId,
-    menuItemId: ulid(),
+    menuItemId: randomUUID(),
     name: input.name,
     description: input.description,
     price: input.price,
