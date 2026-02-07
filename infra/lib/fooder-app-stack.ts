@@ -2,6 +2,7 @@ import { Stack, StackProps } from 'aws-cdk-lib';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { AuthConstruct } from './constructs/auth';
+import { ApiConstruct } from './constructs/api';
 
 export interface FooderAppStackProps extends StackProps {
   stage: string;
@@ -32,11 +33,23 @@ export class FooderAppStack extends Stack {
     const usersTableArn = ssm.StringParameter.valueForStringParameter(
       this, `/${stage}/fooder/tables/users/arn`,
     );
+    const menuItemsTableName = ssm.StringParameter.valueForStringParameter(
+      this, `/${stage}/fooder/tables/menu-items/name`,
+    );
+    const menuItemsTableArn = ssm.StringParameter.valueForStringParameter(
+      this, `/${stage}/fooder/tables/menu-items/arn`,
+    );
+    const schedulesTableName = ssm.StringParameter.valueForStringParameter(
+      this, `/${stage}/fooder/tables/schedules/name`,
+    );
+    const schedulesTableArn = ssm.StringParameter.valueForStringParameter(
+      this, `/${stage}/fooder/tables/schedules/arn`,
+    );
     const piiKeyArn = ssm.StringParameter.valueForStringParameter(
       this, `/${stage}/fooder/kms/pii-key/arn`,
     );
 
-    new AuthConstruct(this, 'Auth', {
+    const auth = new AuthConstruct(this, 'Auth', {
       stage,
       usersTableName,
       usersTableArn,
@@ -48,6 +61,16 @@ export class FooderAppStack extends Stack {
       logoutUrls,
     });
 
-    // Will receive ApiConstruct (Phase 3) and FrontendConstruct (Phase 4-5)
+    new ApiConstruct(this, 'Api', {
+      stage,
+      userPool: auth.userPool,
+      usersTableName,
+      usersTableArn,
+      menuItemsTableName,
+      menuItemsTableArn,
+      schedulesTableName,
+      schedulesTableArn,
+      piiKeyArn,
+    });
   }
 }
