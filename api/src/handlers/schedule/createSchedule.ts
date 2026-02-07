@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult, Context } from 'aws-lambda';
 import { BatchGetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { ulid } from 'ulid';
+import { randomUUID } from 'node:crypto';
 import { docClient } from '../../lib/dynamodb.js';
 import { success } from '../../lib/response.js';
 import { ValidationError } from '../../lib/errors.js';
@@ -56,7 +56,7 @@ async function createScheduleHandler(
 
   // Build schedule with embedded item snapshots
   const now = new Date().toISOString();
-  const scheduleId = ulid();
+  const scheduleId = randomUUID();
   const scheduleItems = input.items.map((item) => {
     const menuItem = fetchedMap.get(item.menuItemId)!;
     return {
