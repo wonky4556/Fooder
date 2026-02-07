@@ -12,7 +12,7 @@ Fooder is a food ordering app (admin portal + customer site) built as a pnpm mon
 - `packages/shared-ui/` — Shared React components (not yet scaffolded)
 - `apps/admin/` — Admin management portal (not yet scaffolded)
 - `apps/customer/` — Customer ordering site (not yet scaffolded)
-- `api/` — Lambda handlers (not yet scaffolded)
+- `api/` — Lambda handlers (Phase 3 complete: menu + schedule CRUD)
 - `infra/` — AWS CDK infrastructure (Phase 1 complete: DynamoDB tables, KMS key)
 
 ## Commands
@@ -118,7 +118,8 @@ cd infra && npx cdk synth -c stage=prod
 - **Phase 1**: COMPLETE (scaffolding, shared types, DynamoDB tables, KMS key, 12 CDK tests passing)
 - **CI/CD**: COMPLETE (GitHub Actions: CI, DEV deploy, PROD deploy; stack split into InfraStack + AppStack)
 - **Phase 2**: COMPLETE (Cognito auth with Google SSO, post-confirmation Lambda, API middleware, admin scaffold — 33 API + 20 infra + 4 admin = 57 tests)
-- **Phases 3-6**: NOT STARTED (API, admin frontend, customer frontend, deployment)
+- **Phase 3**: COMPLETE (Menu + Schedule CRUD API, API Gateway + Cognito Authorizer, 11 Lambda handlers, Zod validation — 30 infra + 95 API + 4 admin = 129 tests)
+- **Phases 4-6**: NOT STARTED (admin frontend, customer frontend, deployment)
 
 ## Documentation
 - Update prd.md with status of phases and completion of steps
