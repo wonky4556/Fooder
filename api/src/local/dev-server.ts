@@ -2,6 +2,16 @@ import express from 'express';
 import cors from 'cors';
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { handler as getMeHandler } from '../handlers/auth/getMe.js';
+import { handler as createMenuItemHandler } from '../handlers/menu/createMenuItem.js';
+import { handler as listMenuItemsHandler } from '../handlers/menu/listMenuItems.js';
+import { handler as getMenuItemHandler } from '../handlers/menu/getMenuItem.js';
+import { handler as updateMenuItemHandler } from '../handlers/menu/updateMenuItem.js';
+import { handler as deleteMenuItemHandler } from '../handlers/menu/deleteMenuItem.js';
+import { handler as createScheduleHandler } from '../handlers/schedule/createSchedule.js';
+import { handler as listSchedulesHandler } from '../handlers/schedule/listSchedules.js';
+import { handler as getScheduleHandler } from '../handlers/schedule/getSchedule.js';
+import { handler as updateScheduleHandler } from '../handlers/schedule/updateSchedule.js';
+import { handler as deleteScheduleHandler } from '../handlers/schedule/deleteSchedule.js';
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -87,6 +97,20 @@ function lambdaRoute(handler: LambdaHandler): express.RequestHandler {
 // Routes
 app.get('/api/me', lambdaRoute(getMeHandler));
 
+// Menu item routes
+app.post('/api/menu-items', lambdaRoute(createMenuItemHandler));
+app.get('/api/menu-items', lambdaRoute(listMenuItemsHandler));
+app.get('/api/menu-items/:id', lambdaRoute(getMenuItemHandler));
+app.put('/api/menu-items/:id', lambdaRoute(updateMenuItemHandler));
+app.delete('/api/menu-items/:id', lambdaRoute(deleteMenuItemHandler));
+
+// Schedule routes
+app.post('/api/schedules', lambdaRoute(createScheduleHandler));
+app.get('/api/schedules', lambdaRoute(listSchedulesHandler));
+app.get('/api/schedules/:id', lambdaRoute(getScheduleHandler));
+app.put('/api/schedules/:id', lambdaRoute(updateScheduleHandler));
+app.delete('/api/schedules/:id', lambdaRoute(deleteScheduleHandler));
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -96,5 +120,7 @@ const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Local API server running on http://localhost:${PORT}`);
   console.log(`USERS_TABLE_NAME: ${process.env.USERS_TABLE_NAME || '(not set)'}`);
+  console.log(`MENU_ITEMS_TABLE_NAME: ${process.env.MENU_ITEMS_TABLE_NAME || '(not set)'}`);
+  console.log(`SCHEDULES_TABLE_NAME: ${process.env.SCHEDULES_TABLE_NAME || '(not set)'}`);
   console.log(`PII_KEY_ARN: ${process.env.PII_KEY_ARN ? '***' : '(not set)'}`);
 });
