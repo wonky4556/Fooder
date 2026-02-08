@@ -88,6 +88,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build workspace dependencies
+        run: pnpm --filter @fooder/shared-types build && pnpm --filter @fooder/shared-ui build
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
