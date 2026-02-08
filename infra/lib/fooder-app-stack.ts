@@ -3,6 +3,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { AuthConstruct } from './constructs/auth';
 import { ApiConstruct } from './constructs/api';
+import { FrontendConstruct } from './constructs/frontend';
 
 export interface FooderAppStackProps extends StackProps {
   stage: string;
@@ -71,6 +72,11 @@ export class FooderAppStack extends Stack {
       schedulesTableName,
       schedulesTableArn,
       piiKeyArn,
+    });
+
+    new FrontendConstruct(this, 'AdminFrontend', {
+      stage,
+      appName: 'admin',
     });
   }
 }
