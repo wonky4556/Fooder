@@ -43,8 +43,8 @@ describe('Auth Construct', () => {
       AllowedOAuthScopes: ['openid', 'email', 'profile'],
       AllowedOAuthFlowsUserPoolClient: true,
       SupportedIdentityProviders: Match.arrayWith(['Google']),
-      CallbackURLs: ['http://localhost:5173/auth/callback'],
-      LogoutURLs: ['http://localhost:5173/login'],
+      CallbackURLs: Match.arrayWith(['http://localhost:5173/auth/callback']),
+      LogoutURLs: Match.arrayWith(['http://localhost:5173/login']),
     });
   });
 
