@@ -50,6 +50,22 @@ export class FooderAppStack extends Stack {
       this, `/${stage}/fooder/kms/pii-key/arn`,
     );
 
+    // Create frontend first so CloudFront domain can be added to Cognito callback URLs
+    const adminFrontend = new FrontendConstruct(this, 'AdminFrontend', {
+      stage,
+      appName: 'admin',
+    });
+
+    const adminDomain = adminFrontend.distribution.distributionDomainName;
+    const allCallbackUrls = [
+      ...callbackUrls,
+      `https://${adminDomain}/auth/callback`,
+    ];
+    const allLogoutUrls = [
+      ...logoutUrls,
+      `https://${adminDomain}/login`,
+    ];
+
     const auth = new AuthConstruct(this, 'Auth', {
       stage,
       usersTableName,
@@ -58,8 +74,8 @@ export class FooderAppStack extends Stack {
       googleClientId,
       googleClientSecret,
       adminEmailHashes,
-      callbackUrls,
-      logoutUrls,
+      callbackUrls: allCallbackUrls,
+      logoutUrls: allLogoutUrls,
     });
 
     new ApiConstruct(this, 'Api', {
@@ -72,11 +88,6 @@ export class FooderAppStack extends Stack {
       schedulesTableName,
       schedulesTableArn,
       piiKeyArn,
-    });
-
-    new FrontendConstruct(this, 'AdminFrontend', {
-      stage,
-      appName: 'admin',
     });
   }
 }
